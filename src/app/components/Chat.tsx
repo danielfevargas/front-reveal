@@ -2,74 +2,93 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Send, Info, Sparkles, Lock, Unlock } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 
-const MESSAGES = [
-  { id: 1, text: "Hola! Vi que también te gusta el café ☕", sender: "them", time: "10:30" },
-  { id: 2, text: "Sí! Me encanta. ¿Tienes algún lugar favorito?", sender: "me", time: "10:32" },
-  {
-    id: 3,
-    text: "Hay uno cerca de la universidad que tiene el mejor capuchino",
-    sender: "them",
-    time: "10:33",
-  },
-  { id: 4, text: "Suena genial! También me gusta la fotografía, vi que lo tienes en tu perfil", sender: "me", time: "10:35" },
-  {
-    id: 5,
-    text: "Sí! Llevo mi cámara a todos lados. ¿Qué tipo de fotos te gusta tomar?",
-    sender: "them",
-    time: "10:36",
-  },
-];
+const CHAT_URL = "http://localhost:3005";
 
-const MATCH_DATA = {
-  1: {
-    name: "María",
-    revealStage: 45,
-    blurLevel: 80,
-    university: "Universidad de los Andes",
-    compatibility: 87,
-    unlockedInfo: ["Nombre", "Intereses comunes"],
-    lockedInfo: ["Foto completa", "Edad", "Carrera", "Redes sociales"],
-  },
-  2: {
-    name: "Carlos",
-    revealStage: 65,
-    blurLevel: 60,
-    university: "Universidad Nacional",
-    compatibility: 92,
-    unlockedInfo: ["Nombre", "Intereses comunes", "Universidad"],
-    lockedInfo: ["Foto completa", "Edad", "Carrera"],
-  },
-};
+interface Mensaje {
+  id: number;
+  text: string;
+  sender: "me" | "them";
+  time: string;
+}
 
 export function Chat() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState(MESSAGES);
+  const [messages, setMessages] = useState<Mensaje[]>([]);
   const [showInfo, setShowInfo] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [nivel, setNivel] = useState(2);
+  const [blur, setBlur] = useState(20);
+  const [puntaje, setPuntaje] = useState(0);
+  const [razon, setRazon] = useState("");
+  const [lugares, setLugares] = useState<any[]>([]);
+  const [showLugares, setShowLugares] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const matchData = MATCH_DATA[id as keyof typeof MATCH_DATA] || MATCH_DATA[1];
+  const userId = localStorage.getItem("userId") || "";
+  const otroUserId = id || "";
+  const nombrePropio = localStorage.getItem("nombre") || "Yo";
+
+  useEffect(() => {
+    const s = io(CHAT_URL);
+    setSocket(s);
+
+    s.emit("unirse", {
+      user_id: userId,
+      otro_user_id: otroUserId,
+      intereses_comunes: ["música", "café", "tecnología"]
+    });
+
+    s.on("estado_sala", (data) => {
+      setNivel(data.nivel);
+      setBlur(data.blur);
+    });
+
+    s.on("nuevo_mensaje", (msg) => {
+      setMessages((prev) => [...prev, {
+        id: prev.length + 1,
+        text: msg.texto,
+        sender: msg.autor === nombrePropio ? "me" : "them",
+        time: new Date(msg.timestamp).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+      }]);
+    });
+
+    s.on("actualizacion_nivel", (data) => {
+      setNivel(data.nivel);
+      setBlur(data.blur);
+      setPuntaje(data.puntaje);
+      setRazon(data.razon);
+    });
+
+    s.on("recomendacion_lugares", (data) => {
+      setLugares(data.lugares);
+      setShowLugares(true);
+    });
+
+    return () => { s.disconnect(); };
+  }, [userId, otroUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSend = () => {
-    if (message.trim()) {
-      setMessages([
-        ...messages,
-        {
-          id: messages.length + 1,
-          text: message,
-          sender: "me",
-          time: new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      setMessage("");
-    }
+    if (!message.trim() || !socket) return;
+
+    socket.emit("mensaje", {
+      user_id: userId,
+      otro_user_id: otroUserId,
+      texto: message,
+      autor: nombrePropio
+    });
+
+    setMessage("");
   };
+
+  const revealStage = Math.min(100, puntaje);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -83,15 +102,14 @@ export function Chat() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
 
-          {/* Blurred avatar */}
           <div className="relative">
             <div
               className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white font-bold text-lg"
-              style={{ filter: `blur(${matchData.blurLevel / 20}px)` }}
+              style={{ filter: `blur(${blur / 20}px)` }}
             >
-              {matchData.name[0]}
+              ?
             </div>
-            {matchData.revealStage < 75 && (
+            {nivel < 4 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
                 <Lock className="w-3 h-3 text-white" />
               </div>
@@ -99,8 +117,10 @@ export function Chat() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900">{matchData.name}</h3>
-            <p className="text-xs text-gray-500">Revelación {matchData.revealStage}%</p>
+            <h3 className="font-semibold text-gray-900">
+              {nivel >= 4 ? "Usuario desbloqueado" : "Usuario anónimo"}
+            </h3>
+            <p className="text-xs text-gray-500">Nivel {nivel} · Puntaje {puntaje}</p>
           </div>
         </div>
 
@@ -113,35 +133,51 @@ export function Chat() {
       </header>
 
       {/* AI Progress Banner */}
-      <motion.div
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: "auto", opacity: 1 }}
-        className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 text-white overflow-hidden"
-      >
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 text-white">
         <div className="flex items-center gap-2 text-sm">
           <Sparkles className="w-4 h-4 flex-shrink-0" />
           <p>
-            ¡La IA detecta buena conexión! Sigue conversando para revelar más información.
-            <span className="font-semibold ml-1">+5% en 10 mensajes</span>
+            {razon || "Conversá para que la IA analice tu conexión"}
+            <span className="font-semibold ml-1">Nivel {nivel}</span>
           </p>
         </div>
         <div className="w-full bg-white/20 rounded-full h-1.5 mt-2">
           <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${matchData.revealStage}%` }}
+            animate={{ width: `${revealStage}%` }}
             className="bg-white h-full rounded-full"
           />
         </div>
-      </motion.div>
+      </div>
+
+      {/* Lugares recomendados */}
+      {showLugares && lugares.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-green-50 border-b border-green-200 px-4 py-3"
+        >
+          <p className="text-green-800 font-semibold text-sm mb-2">🎉 ¡Gran conexión! Lugares recomendados:</p>
+          {lugares.map((l, i) => (
+            <p key={i} className="text-green-700 text-xs">📍 {l.nombre} — {l.direccion}</p>
+          ))}
+          <button onClick={() => setShowLugares(false)} className="text-green-500 text-xs mt-1">Cerrar</button>
+        </motion.div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.map((msg, index) => (
+        {messages.length === 0 && (
+          <div className="text-center text-gray-400 mt-20">
+            <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>¡Empezá la conversación!</p>
+            <p className="text-xs mt-1">La IA analizará la conexión cada 5 mensajes</p>
+          </div>
+        )}
+        {messages.map((msg) => (
           <motion.div
             key={msg.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
             className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}
           >
             <div
@@ -152,11 +188,7 @@ export function Chat() {
               }`}
             >
               <p className="text-sm">{msg.text}</p>
-              <p
-                className={`text-xs mt-1 ${
-                  msg.sender === "me" ? "text-purple-200" : "text-gray-500"
-                }`}
-              >
+              <p className={`text-xs mt-1 ${msg.sender === "me" ? "text-purple-200" : "text-gray-500"}`}>
                 {msg.time}
               </p>
             </div>
@@ -197,67 +229,25 @@ export function Chat() {
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-gray-900">Información de Perfil</h3>
-                <button
-                  onClick={() => setShowInfo(false)}
-                  className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center"
-                >
-                  ✕
-                </button>
+                <h3 className="text-lg font-bold text-gray-900">Información</h3>
+                <button onClick={() => setShowInfo(false)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">✕</button>
               </div>
 
-              {/* Profile preview */}
-              <div className="mb-6">
-                <div
-                  className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white text-5xl font-bold mb-4"
-                  style={{ filter: `blur(${matchData.blurLevel / 20}px)` }}
-                >
-                  {matchData.name[0]}
-                </div>
-                <div className="text-center">
-                  <h4 className="text-xl font-bold text-gray-900 mb-1">{matchData.name}</h4>
-                  <p className="text-sm text-purple-600 font-medium">
-                    {matchData.compatibility}% compatible
-                  </p>
-                </div>
+              <div
+                className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white text-5xl font-bold mb-4"
+                style={{ filter: `blur(${blur / 20}px)` }}
+              >
+                ?
               </div>
 
-              {/* Unlocked info */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Unlock className="w-4 h-4 text-green-600" />
-                  Información desbloqueada
-                </h4>
-                <div className="space-y-2">
-                  {matchData.unlockedInfo.map((info) => (
-                    <div key={info} className="flex items-center gap-2 text-sm text-gray-700">
-                      <div className="w-2 h-2 bg-green-500 rounded-full" />
-                      {info}
-                    </div>
-                  ))}
-                </div>
+              <div className="text-center mb-6">
+                <p className="text-purple-600 font-medium">Nivel {nivel} de conexión</p>
+                <p className="text-sm text-gray-500 mt-1">{razon}</p>
               </div>
 
-              {/* Locked info */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-gray-400" />
-                  Bloqueado
-                </h4>
-                <div className="space-y-2">
-                  {matchData.lockedInfo.map((info) => (
-                    <div key={info} className="flex items-center gap-2 text-sm text-gray-400">
-                      <div className="w-2 h-2 bg-gray-300 rounded-full" />
-                      {info}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 p-4 bg-purple-50 rounded-xl">
+              <div className="p-4 bg-purple-50 rounded-xl">
                 <p className="text-xs text-purple-900">
-                  💡 Sigue conversando para desbloquear más información. La IA analizará la
-                  calidad de tu conexión.
+                  💡 A mayor conexión, más información se revela automáticamente.
                 </p>
               </div>
             </div>

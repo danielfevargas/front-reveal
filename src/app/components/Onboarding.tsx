@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { userService } from "../../services/api";
 import {
   Coffee,
   Gamepad,
@@ -49,8 +50,25 @@ export function Onboarding() {
     );
   };
 
-  const handleContinue = () => {
-    if (selected.length > 0) {
+  const handleContinue = async () => {
+    if (selected.length === 0) return;
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+
+    const intereses = selected.map((id) => {
+      const interest = INTERESTS.find((i) => i.id === id);
+      return {
+        tag: interest?.label.toLowerCase() || id,
+        categoria: "general"
+      };
+    });
+
+    try {
+      await userService.agregarIntereses(userId, intereses);
+      navigate("/completar-perfil");
+    } catch (error) {
+      console.error("Error guardando intereses:", error);
       navigate("/dashboard");
     }
   };

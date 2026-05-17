@@ -46,12 +46,15 @@ export function Welcome() {
           className="space-y-3"
         >
           <button
-            onClick={() => navigate("/onboarding")}
+            onClick={() => navigate("/register")}
             className="w-full bg-white text-purple-600 py-4 rounded-2xl font-semibold text-lg hover:bg-white/90 transition-all shadow-xl"
           >
             Comenzar
           </button>
-          <button className="w-full bg-white/10 backdrop-blur-lg text-white py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all">
+          <button
+            onClick={() => navigate("/login")}
+            className="w-full bg-white/10 backdrop-blur-lg text-white py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all"
+          >
             Ya tengo cuenta
           </button>
         </motion.div>
