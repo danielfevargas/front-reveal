@@ -51,7 +51,7 @@ export function Onboarding() {
   };
 
   const handleContinue = async () => {
-    if (selected.length === 0) return;
+    if (selected.length < 3) return;
 
     const userId = localStorage.getItem("userId");
     if (!userId) return;
@@ -94,6 +94,9 @@ export function Onboarding() {
           </p>
           <p className="text-sm text-purple-600 mt-2">
             {selected.length} seleccionados
+            {selected.length > 0 && selected.length < 3 && (
+              <span className="text-red-500 ml-2">— selecciona al menos 3</span>
+            )}
           </p>
         </div>
 
@@ -149,11 +152,11 @@ export function Onboarding() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           onClick={handleContinue}
-          disabled={selected.length === 0}
+          disabled={selected.length < 3}
           className={`
             w-full py-4 rounded-2xl font-semibold text-lg transition-all
             ${
-              selected.length > 0
+              selected.length >= 3
                 ? "bg-purple-600 text-white shadow-xl hover:bg-purple-700"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
             }

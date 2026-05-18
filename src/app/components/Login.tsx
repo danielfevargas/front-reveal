@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { Sparkles, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router";
-import { authService } from "../../services/api";
+import { authService, userService } from "../../services/api";
 
 export function Login() {
   const navigate = useNavigate();
@@ -28,7 +28,14 @@ export function Login() {
       localStorage.setItem("token", token);
       localStorage.setItem("userId", userId);
       localStorage.setItem("email", email);
-      localStorage.setItem("nombre", email.split("@")[0]);
+
+      // obtener nombre real del perfil
+      try {
+        const perfil = await userService.obtenerPerfil(userId);
+        localStorage.setItem("nombre", perfil.data.data.nombre || email.split("@")[0]);
+      } catch {
+        localStorage.setItem("nombre", email.split("@")[0]);
+      }
 
       navigate("/dashboard");
     } catch (err: any) {
@@ -45,7 +52,6 @@ export function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full"
       >
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur-lg rounded-3xl mb-4">
             <Sparkles className="w-8 h-8 text-white" />
@@ -54,7 +60,6 @@ export function Login() {
           <p className="text-white/70 mt-1">Inicia sesión en REVEAL</p>
         </div>
 
-        {/* Form */}
         <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 space-y-4">
           {error && (
             <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 text-white text-sm">

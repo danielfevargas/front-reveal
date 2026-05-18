@@ -21,9 +21,15 @@ import {
 export function Settings() {
   const navigate = useNavigate();
 
+  const handleCerrarSesion = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
+
+  const email = localStorage.getItem("email") || "tu@universidad.edu.co";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <button
@@ -38,7 +44,6 @@ export function Settings() {
       </header>
 
       <div className="max-w-4xl mx-auto p-6 pb-20">
-        {/* Premium Banner */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -51,19 +56,14 @@ export function Settings() {
                 <Crown className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg mb-1">
-                  Actualizar a Premium
-                </h3>
-                <p className="text-white/90 text-sm">
-                  Matches ilimitados, Fast Reveal y más
-                </p>
+                <h3 className="text-white font-bold text-lg mb-1">Actualizar a Premium</h3>
+                <p className="text-white/90 text-sm">Matches ilimitados, Fast Reveal y más</p>
               </div>
             </div>
             <ChevronRight className="w-6 h-6 text-white" />
           </div>
         </motion.div>
 
-        {/* Cuenta */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -82,7 +82,7 @@ export function Settings() {
           <SettingItem
             icon={<Mail className="w-5 h-5" />}
             title="Email"
-            description="sofia.garcia@uniandes.edu.co"
+            description={email}
             verified
           />
           <SettingItem
@@ -99,7 +99,6 @@ export function Settings() {
           />
         </motion.div>
 
-        {/* Privacidad */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -138,7 +137,6 @@ export function Settings() {
           />
         </motion.div>
 
-        {/* Notificaciones */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -178,7 +176,6 @@ export function Settings() {
           />
         </motion.div>
 
-        {/* Suscripción */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -203,7 +200,6 @@ export function Settings() {
           />
         </motion.div>
 
-        {/* Soporte */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -235,13 +231,15 @@ export function Settings() {
           />
         </motion.div>
 
-        {/* Cerrar Sesión */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          <button className="w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-center gap-3 text-red-600 font-medium hover:bg-red-50 transition-colors">
+          <button
+            onClick={handleCerrarSesion}
+            className="w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-center gap-3 text-red-600 font-medium hover:bg-red-50 transition-colors"
+          >
             <LogOut className="w-5 h-5" />
             Cerrar Sesión
           </button>

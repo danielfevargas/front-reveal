@@ -33,8 +33,12 @@ export const authService = {
 export const userService = {
   crearPerfil: (data: any) => api.post('/users', data),
   obtenerPerfil: (id: string) => api.get(`/users/${id}`),
+  obtenerPerfilConNivel: (id: string, nivel: number) => api.get(`/users/${id}`, {
+    headers: { 'x-nivel-privacidad': nivel.toString() }
+  }),
   actualizarPerfil: (id: string, data: any) => api.put(`/users/${id}`, data),
   agregarIntereses: (id: string, intereses: any[]) => api.post(`/users/${id}/intereses`, { intereses }),
+  actualizarFotos: (id: string, fotos: string[]) => api.put(`/users/${id}/fotos`, { fotos }),
 };
 
 // DOCUMENTO

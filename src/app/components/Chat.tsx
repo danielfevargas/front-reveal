@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Send, Info, Sparkles, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, Send, Info, Sparkles, Lock } from "lucide-react";
 import { io, Socket } from "socket.io-client";
+import { userService } from "../../services/api";
 
 const CHAT_URL = "http://localhost:3005";
 
@@ -26,11 +27,25 @@ export function Chat() {
   const [razon, setRazon] = useState("");
   const [lugares, setLugares] = useState<any[]>([]);
   const [showLugares, setShowLugares] = useState(false);
+  const [perfilOtro, setPerfilOtro] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userId = localStorage.getItem("userId") || "";
   const otroUserId = id || "";
   const nombrePropio = localStorage.getItem("nombre") || "Yo";
+
+  useEffect(() => {
+    const cargarPerfilOtro = async () => {
+      try {
+        const resp = await userService.obtenerPerfilConNivel(otroUserId, nivel);
+        setPerfilOtro(resp.data.data);
+      } catch (error) {
+        console.error("Error cargando perfil:", error);
+      }
+    };
+
+    if (otroUserId) cargarPerfilOtro();
+  }, [otroUserId, nivel]);
 
   useEffect(() => {
     const s = io(CHAT_URL);
@@ -39,7 +54,8 @@ export function Chat() {
     s.emit("unirse", {
       user_id: userId,
       otro_user_id: otroUserId,
-      intereses_comunes: ["música", "café", "tecnología"]
+      intereses_comunes: ["música", "café", "tecnología"],
+      ciudad: localStorage.getItem("ciudad") || "Ibagué, Colombia"
     });
 
     s.on("estado_sala", (data) => {
@@ -89,10 +105,11 @@ export function Chat() {
   };
 
   const revealStage = Math.min(100, puntaje);
+  const esBorrosa = perfilOtro?.foto_borrosa === true;
+  const tienefoto = !!perfilOtro?.foto_url;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
@@ -103,12 +120,18 @@ export function Chat() {
           </button>
 
           <div className="relative">
-            <div
-              className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white font-bold text-lg"
-              style={{ filter: `blur(${blur / 20}px)` }}
-            >
-              ?
-            </div>
+            {tienefoto ? (
+              <img
+                src={perfilOtro.foto_url}
+                alt="Foto"
+                className="w-12 h-12 rounded-full object-cover"
+                style={{ filter: esBorrosa ? `blur(8px)` : 'none' }}
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white font-bold text-lg">
+                {perfilOtro?.nombre?.[0] || "?"}
+              </div>
+            )}
             {nivel < 4 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
                 <Lock className="w-3 h-3 text-white" />
@@ -118,7 +141,11 @@ export function Chat() {
 
           <div>
             <h3 className="font-semibold text-gray-900">
-              {nivel >= 4 ? "Usuario desbloqueado" : "Usuario anónimo"}
+              {nivel >= 4
+                ? (perfilOtro?.nombre || "Usuario desbloqueado")
+                : nivel >= 3
+                ? (perfilOtro?.nombre ? `${perfilOtro.nombre.split(' ')[0]}` : "Usuario anónimo")
+                : "Usuario anónimo"}
             </h3>
             <p className="text-xs text-gray-500">Nivel {nivel} · Puntaje {puntaje}</p>
           </div>
@@ -132,7 +159,6 @@ export function Chat() {
         </button>
       </header>
 
-      {/* AI Progress Banner */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 text-white">
         <div className="flex items-center gap-2 text-sm">
           <Sparkles className="w-4 h-4 flex-shrink-0" />
@@ -149,7 +175,6 @@ export function Chat() {
         </div>
       </div>
 
-      {/* Lugares recomendados */}
       {showLugares && lugares.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -164,7 +189,6 @@ export function Chat() {
         </motion.div>
       )}
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-400 mt-20">
@@ -197,7 +221,6 @@ export function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className="bg-white border-t border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <input
@@ -218,7 +241,6 @@ export function Chat() {
         </div>
       </div>
 
-      {/* Info Sidebar */}
       <AnimatePresence>
         {showInfo && (
           <motion.div
@@ -233,12 +255,18 @@ export function Chat() {
                 <button onClick={() => setShowInfo(false)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">✕</button>
               </div>
 
-              <div
-                className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white text-5xl font-bold mb-4"
-                style={{ filter: `blur(${blur / 20}px)` }}
-              >
-                ?
-              </div>
+              {tienefoto ? (
+                <img
+                  src={perfilOtro.foto_url}
+                  alt="Foto"
+                  className="w-32 h-32 mx-auto rounded-2xl object-cover mb-4"
+                  style={{ filter: esBorrosa ? `blur(8px)` : 'none' }}
+                />
+              ) : (
+                <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white text-5xl font-bold mb-4">
+                  {perfilOtro?.nombre?.[0] || "?"}
+                </div>
+              )}
 
               <div className="text-center mb-6">
                 <p className="text-purple-600 font-medium">Nivel {nivel} de conexión</p>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { ArrowLeft, Settings, Edit, Star, TrendingUp, Heart, Calendar } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { ArrowLeft, Settings, Edit, Star, TrendingUp, Heart, Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { userService } from "../../services/api";
@@ -10,6 +10,7 @@ export function Profile() {
   const [perfil, setPerfil] = useState<any>(null);
   const [intereses, setIntereses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fotoVisor, setFotoVisor] = useState<number | null>(null);
 
   useEffect(() => {
     const cargarPerfil = async () => {
@@ -40,6 +41,7 @@ export function Profile() {
   }
 
   const inicial = perfil?.nombre?.[0]?.toUpperCase() || "?";
+  const fotos: string[] = perfil?.fotos?.length > 0 ? perfil.fotos : (perfil?.foto_url ? [perfil.foto_url] : []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50">
@@ -71,9 +73,19 @@ export function Profile() {
 
           <div className="px-6 pb-6">
             <div className="flex items-end gap-4 -mt-16 mb-4">
-              <div className="w-32 h-32 bg-gradient-to-br from-purple-400 to-indigo-400 rounded-3xl border-4 border-white shadow-xl flex items-center justify-center text-white text-5xl font-bold">
-                {inicial}
-              </div>
+              {fotos.length > 0 ? (
+                <img
+                  src={fotos[0]}
+                  alt="Foto de perfil"
+                  onClick={() => setFotoVisor(0)}
+                  className="w-32 h-32 rounded-3xl object-cover border-4 border-white shadow-xl cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              ) : (
+                <div className="w-32 h-32 bg-gradient-to-br from-purple-400 to-indigo-400 rounded-3xl border-4 border-white shadow-xl flex items-center justify-center text-white text-5xl font-bold">
+                  {inicial}
+                </div>
+              )}
+
               <div className="flex-1 pb-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -102,6 +114,34 @@ export function Profile() {
 
             {perfil?.bio && (
               <p className="text-gray-700 mb-4">{perfil.bio}</p>
+            )}
+
+            {perfil?.prompt_pregunta && perfil?.prompt_respuesta && (
+              <div className="bg-purple-50 rounded-2xl p-4 mb-4 border border-purple-100">
+                <p className="text-purple-600 text-sm font-medium mb-2">
+                  💬 {perfil.prompt_pregunta}
+                </p>
+                <p className="text-gray-800 font-medium">
+                  "{perfil.prompt_respuesta}"
+                </p>
+              </div>
+            )}
+
+            {fotos.length > 1 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Mis fotos ({fotos.length})</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {fotos.map((foto, index) => (
+                    <img
+                      key={index}
+                      src={foto}
+                      alt={`Foto ${index + 1}`}
+                      onClick={() => setFotoVisor(index)}
+                      className="w-full aspect-square object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
             {intereses.length > 0 && (
@@ -163,6 +203,58 @@ export function Profile() {
       </div>
 
       <BottomNav />
+
+      <AnimatePresence>
+        {fotoVisor !== null && fotos.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setFotoVisor(null)}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          >
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={fotos[fotoVisor]}
+              alt="Foto ampliada"
+              className="max-w-full max-h-full rounded-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {fotos.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFotoVisor((fotoVisor - 1 + fotos.length) % fotos.length); }}
+                  className="absolute left-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
+                >
+                  <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFotoVisor((fotoVisor + 1) % fotos.length); }}
+                  className="absolute right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setFotoVisor(null)}
+              className="absolute top-4 right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+
+            <div className="absolute bottom-6 flex gap-2">
+              {fotos.map((_, i) => (
+                <div key={i} className={`w-2 h-2 rounded-full ${i === fotoVisor ? 'bg-white' : 'bg-white/40'}`} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

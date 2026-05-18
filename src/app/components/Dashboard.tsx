@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { Sparkles, Users, TrendingUp, MessageCircle, Settings, Crown } from "lucide-react";
+import { Sparkles, Users, TrendingUp, MessageCircle, Settings, Crown, MapPin, X } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 
 const MATCHES = [
@@ -43,9 +43,87 @@ const MATCHES = [
   },
 ];
 
+const GOOGLE_API_KEY = "AIzaSyBsbzIDndMeF6J6qp8teCwtS1a8x7WyGoI"; 
+
 export function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"matches" | "discover">("matches");
+  const [ciudad, setCiudad] = useState<string>("");
+  const [ciudadInput, setCiudadInput] = useState<string>("");
+  const [mostrarInputCiudad, setMostrarInputCiudad] = useState(false);
+  const [cargandoUbicacion, setCargandoUbicacion] = useState(false);
+
+  useEffect(() => {
+    const ciudadGuardada = localStorage.getItem("ciudad");
+    if (ciudadGuardada) {
+      setCiudad(ciudadGuardada);
+    } else {
+      pedirUbicacion();
+    }
+  }, []);
+
+  const pedirUbicacion = () => {
+    setCargandoUbicacion(true);
+    if (!navigator.geolocation) {
+      setMostrarInputCiudad(true);
+      setCargandoUbicacion(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const resp = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}&language=es`
+          );
+          const data = await resp.json();
+          
+          if (data.results && data.results.length > 0) {
+            // buscar la ciudad en los componentes de la dirección
+            let ciudadEncontrada = "";
+            for (const result of data.results) {
+              for (const component of result.address_components) {
+                if (component.types.includes("locality") || 
+                    component.types.includes("administrative_area_level_2")) {
+                  ciudadEncontrada = component.long_name;
+                  break;
+                }
+              }
+              if (ciudadEncontrada) break;
+            }
+
+            if (ciudadEncontrada) {
+              const ciudadCompleta = `${ciudadEncontrada}, Colombia`;
+              setCiudad(ciudadCompleta);
+              localStorage.setItem("ciudad", ciudadCompleta);
+            } else {
+              setMostrarInputCiudad(true);
+            }
+          } else {
+            setMostrarInputCiudad(true);
+          }
+        } catch (error) {
+          setMostrarInputCiudad(true);
+        } finally {
+          setCargandoUbicacion(false);
+        }
+      },
+      () => {
+        // usuario rechazó la ubicación
+        setCargandoUbicacion(false);
+        setMostrarInputCiudad(true);
+      }
+    );
+  };
+
+  const guardarCiudadManual = () => {
+    if (!ciudadInput.trim()) return;
+    const ciudadCompleta = `${ciudadInput}, Colombia`;
+    setCiudad(ciudadCompleta);
+    localStorage.setItem("ciudad", ciudadCompleta);
+    setMostrarInputCiudad(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50">
@@ -58,14 +136,69 @@ export function Dashboard() {
             </div>
             <span className="text-xl font-bold text-gray-900">REVEAL</span>
           </div>
-          <button
-            onClick={() => navigate("/settings")}
-            className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors"
-          >
-            <Settings className="w-5 h-5 text-gray-600" />
-          </button>
+          <div className="flex items-center gap-2">
+            {ciudad && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                <MapPin className="w-3 h-3" />
+                <span>{ciudad.split(",")[0]}</span>
+              </div>
+            )}
+            <button
+              onClick={() => navigate("/settings")}
+              className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors"
+            >
+              <Settings className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* Banner cargando ubicación */}
+      {cargandoUbicacion && (
+        <div className="bg-purple-600 text-white text-center py-2 text-sm">
+          📍 Obteniendo tu ubicación...
+        </div>
+      )}
+
+      {/* Modal ciudad manual */}
+      {mostrarInputCiudad && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className="bg-white rounded-3xl p-6 max-w-sm w-full"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 text-lg">¿En qué ciudad estás?</h3>
+              <button onClick={() => setMostrarInputCiudad(false)}>
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <p className="text-gray-500 text-sm mb-4">
+              Necesitamos tu ciudad para recomendarte lugares cercanos cuando tengas buena conexión con alguien.
+            </p>
+            <input
+              type="text"
+              value={ciudadInput}
+              onChange={(e) => setCiudadInput(e.target.value)}
+              placeholder="Ej: Ibagué, Bogotá, Medellín..."
+              onKeyDown={(e) => e.key === "Enter" && guardarCiudadManual()}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:border-purple-400 mb-4"
+            />
+            <button
+              onClick={guardarCiudadManual}
+              disabled={!ciudadInput.trim()}
+              className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              Confirmar ciudad
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
 
       <div className="max-w-4xl mx-auto p-6 pb-24">
         {/* Stats */}
@@ -148,7 +281,6 @@ export function Dashboard() {
         <Crown className="w-7 h-7 text-white" />
       </motion.button>
 
-      {/* Bottom Navigation */}
       <BottomNav />
     </div>
   );
@@ -157,9 +289,7 @@ export function Dashboard() {
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-2 text-purple-600">
-        {icon}
-      </div>
+      <div className="flex items-center gap-2 mb-2 text-purple-600">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-600">{label}</p>
     </div>
@@ -176,7 +306,6 @@ function MatchCard({ match, index, navigate }: { match: any; index: number; navi
       className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer"
     >
       <div className="relative h-48 bg-gradient-to-br from-purple-400 to-indigo-400">
-        {/* Blurred profile image placeholder */}
         <div
           className="absolute inset-0 backdrop-blur-xl bg-white/10"
           style={{ backdropFilter: `blur(${match.blurLevel}px)` }}
@@ -186,7 +315,6 @@ function MatchCard({ match, index, navigate }: { match: any; index: number; navi
           </div>
         </div>
 
-        {/* Reveal progress */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-white font-medium">Revelación</span>
