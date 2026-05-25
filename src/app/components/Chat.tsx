@@ -323,7 +323,7 @@ export function Chat() {
     <div className="h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 cursor-pointer"
-        onClick={() => navigate(`/perfil/${otroUserId}`)}
+          onClick={() => navigate(`/perfil/${otroUserId}`)}
         >
           <button
             onClick={() => navigate("/dashboard")}
@@ -338,7 +338,7 @@ export function Chat() {
                 src={perfilOtro.foto_url}
                 alt="Foto"
                 className="w-12 h-12 rounded-full object-cover"
-                style={{ filter: esBorrosa ? `blur(3px)` : 'none' }}
+                style={{ filter: esBorrosa ? `blur(3px)` : "none" }}
               />
             ) : (
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white font-bold text-lg">
@@ -355,9 +355,11 @@ export function Chat() {
           <div>
             <h3 className="font-semibold text-gray-900">
               {nivel >= 4
-                ? (perfilOtro?.nombre || "Usuario")
+                ? perfilOtro?.nombre || "Usuario"
                 : nivel >= 2
-                ? (perfilOtro?.nombre ? `${perfilOtro.nombre.split(' ')[0]}` : "Usuario anónimo")
+                ? perfilOtro?.nombre
+                  ? `${perfilOtro.nombre.split(" ")[0]}`
+                  : "Usuario anónimo"
                 : "Usuario anónimo"}
             </h3>
             <p className="text-xs text-gray-500">Nivel {nivel} · Puntaje {puntaje}</p>
@@ -426,14 +428,16 @@ export function Chat() {
             className="border-b border-green-200 bg-green-50 overflow-hidden"
           >
             <button
-              onClick={() => setLugaresExpandido(v => !v)}
+              onClick={() => setLugaresExpandido((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-2.5 text-sm"
             >
               <span className="flex items-center gap-2 font-semibold text-green-800">
                 <MapPin className="w-4 h-4 text-green-600" />
                 {lugares.length} lugares recomendados para ustedes
               </span>
-              <ChevronDown className={`w-4 h-4 text-green-600 transition-transform ${lugaresExpandido ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`w-4 h-4 text-green-600 transition-transform ${lugaresExpandido ? "rotate-180" : ""}`}
+              />
             </button>
 
             <AnimatePresence>
@@ -445,9 +449,9 @@ export function Chat() {
                   className="px-4 pb-3 space-y-2"
                 >
                   {lugares.map((l: any, i: number) => (
-                    
+                    <a
                       key={i}
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nombre} ${l.direccion || ""}`)}`}
+                      href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(l.nombre + " " + (l.direccion || ""))}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-start gap-2.5 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow active:scale-95"
@@ -458,9 +462,13 @@ export function Chat() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800">{l.nombre}</p>
                         <p className="text-xs text-gray-500">{l.direccion}</p>
-                        {l.descripcion && <p className="text-xs text-gray-400 mt-0.5">{l.descripcion}</p>}
+                        {l.descripcion && (
+                          <p className="text-xs text-gray-400 mt-0.5">{l.descripcion}</p>
+                        )}
                       </div>
-                      <span className="text-[10px] text-green-600 font-medium flex-shrink-0 mt-0.5">Ver mapa →</span>
+                      <span className="text-[10px] text-green-600 font-medium flex-shrink-0 mt-0.5">
+                        Ver mapa →
+                      </span>
                     </a>
                   ))}
                 </motion.div>
@@ -493,24 +501,36 @@ export function Chat() {
             className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}
           >
             {msg.tipo === "texto" && (
-              <div className={`max-w-[75%] px-4 py-2.5 shadow-sm ${
-                msg.sender === "me"
-                  ? "bg-purple-600 text-white rounded-2xl rounded-br-md"
-                  : "bg-white text-gray-900 rounded-2xl rounded-bl-md"
-              }`}>
+              <div
+                className={`max-w-[75%] px-4 py-2.5 shadow-sm ${
+                  msg.sender === "me"
+                    ? "bg-purple-600 text-white rounded-2xl rounded-br-md"
+                    : "bg-white text-gray-900 rounded-2xl rounded-bl-md"
+                }`}
+              >
                 <p className="text-sm leading-relaxed">{msg.text}</p>
-                <p className={`text-[10px] mt-1 text-right ${msg.sender === "me" ? "text-purple-200" : "text-gray-400"}`}>
+                <p
+                  className={`text-[10px] mt-1 text-right ${
+                    msg.sender === "me" ? "text-purple-200" : "text-gray-400"
+                  }`}
+                >
                   {msg.time}
                 </p>
               </div>
             )}
 
             {msg.tipo === "foto" && (
-              <div className={`max-w-[65%] rounded-2xl overflow-hidden shadow-sm ${
-                msg.sender === "me" ? "rounded-br-md" : "rounded-bl-md"
-              }`}>
+              <div
+                className={`max-w-[65%] rounded-2xl overflow-hidden shadow-sm ${
+                  msg.sender === "me" ? "rounded-br-md" : "rounded-bl-md"
+                }`}
+              >
                 <img src={msg.url} alt="Foto" className="w-full object-cover" />
-                <p className={`text-[10px] px-3 py-1 text-right ${msg.sender === "me" ? "bg-purple-600 text-purple-200" : "bg-white text-gray-400"}`}>
+                <p
+                  className={`text-[10px] px-3 py-1 text-right ${
+                    msg.sender === "me" ? "bg-purple-600 text-purple-200" : "bg-white text-gray-400"
+                  }`}
+                >
                   {msg.time}
                 </p>
               </div>
@@ -521,11 +541,17 @@ export function Chat() {
             )}
 
             {msg.tipo === "video" && (
-              <div className={`max-w-[65%] rounded-2xl overflow-hidden shadow-sm ${
-                msg.sender === "me" ? "rounded-br-md" : "rounded-bl-md"
-              }`}>
+              <div
+                className={`max-w-[65%] rounded-2xl overflow-hidden shadow-sm ${
+                  msg.sender === "me" ? "rounded-br-md" : "rounded-bl-md"
+                }`}
+              >
                 <video controls src={msg.url} className="w-full rounded-2xl" />
-                <p className={`text-[10px] px-3 py-1 text-right ${msg.sender === "me" ? "bg-purple-600 text-purple-200" : "bg-white text-gray-400"}`}>
+                <p
+                  className={`text-[10px] px-3 py-1 text-right ${
+                    msg.sender === "me" ? "bg-purple-600 text-purple-200" : "bg-white text-gray-400"
+                  }`}
+                >
                   {msg.time}
                 </p>
               </div>
@@ -608,10 +634,28 @@ export function Chat() {
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) subirMedia(f, "foto"); e.target.value = ""; }} />
-      <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) subirMedia(f, "video"); e.target.value = ""; }} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) subirMedia(f, "foto");
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) subirMedia(f, "video");
+          e.target.value = "";
+        }}
+      />
 
       <AnimatePresence>
         {mostrarBloquear && (
@@ -660,7 +704,12 @@ export function Chat() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-900">Información</h3>
-                <button onClick={() => setShowInfo(false)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">✕</button>
+                <button
+                  onClick={() => setShowInfo(false)}
+                  className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center"
+                >
+                  ✕
+                </button>
               </div>
 
               {tienefoto ? (
@@ -668,7 +717,7 @@ export function Chat() {
                   src={perfilOtro.foto_url}
                   alt="Foto"
                   className="w-32 h-32 mx-auto rounded-2xl object-cover mb-4"
-                  style={{ filter: esBorrosa ? `blur(8px)` : 'none' }}
+                  style={{ filter: esBorrosa ? `blur(8px)` : "none" }}
                 />
               ) : (
                 <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-400 flex items-center justify-center text-white text-5xl font-bold mb-4">
@@ -683,15 +732,27 @@ export function Chat() {
 
               <div className="space-y-2 mb-4">
                 <p className="text-xs font-medium text-gray-700">Próximos desbloqueos:</p>
-                <div className={`flex items-center gap-2 text-xs ${nivel >= 3 ? "text-green-600" : "text-gray-400"}`}>
+                <div
+                  className={`flex items-center gap-2 text-xs ${
+                    nivel >= 3 ? "text-green-600" : "text-gray-400"
+                  }`}
+                >
                   <Mic className="w-3 h-3" />
                   {nivel >= 3 ? "✅ Audios desbloqueados" : "🔒 Audios — Nivel 3"}
                 </div>
-                <div className={`flex items-center gap-2 text-xs ${nivel >= 4 ? "text-green-600" : "text-gray-400"}`}>
+                <div
+                  className={`flex items-center gap-2 text-xs ${
+                    nivel >= 4 ? "text-green-600" : "text-gray-400"
+                  }`}
+                >
                   <Image className="w-3 h-3" />
                   {nivel >= 4 ? "✅ Fotos desbloqueadas" : "🔒 Fotos — Nivel 4"}
                 </div>
-                <div className={`flex items-center gap-2 text-xs ${nivel >= 5 ? "text-green-600" : "text-gray-400"}`}>
+                <div
+                  className={`flex items-center gap-2 text-xs ${
+                    nivel >= 5 ? "text-green-600" : "text-gray-400"
+                  }`}
+                >
                   <Video className="w-3 h-3" />
                   {nivel >= 5 ? "✅ Videos desbloqueados" : "🔒 Videos — Nivel 5"}
                 </div>
@@ -713,6 +774,7 @@ export function Chat() {
 /**
  * Burbuja de mensaje de audio con controles de reproducción.
  * Muestra barra de progreso clickeable, tiempo transcurrido y duración total.
+ * Usa un elemento <audio> nativo con ref para controlar reproducción.
  */
 function AudioBurbuja({ url, sender, time }: { url: string; sender: "me" | "them"; time: string }) {
   const [playing, setPlaying] = useState(false);
@@ -738,11 +800,13 @@ function AudioBurbuja({ url, sender, time }: { url: string; sender: "me" | "them
   };
 
   return (
-    <div className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-      sender === "me"
-        ? "bg-purple-600 text-white rounded-br-sm"
-        : "bg-white text-gray-900 rounded-bl-sm shadow-sm"
-    }`}>
+    <div
+      className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+        sender === "me"
+          ? "bg-purple-600 text-white rounded-br-sm"
+          : "bg-white text-gray-900 rounded-bl-sm shadow-sm"
+      }`}
+    >
       <audio
         ref={audioRef}
         src={url}
@@ -766,13 +830,21 @@ function AudioBurbuja({ url, sender, time }: { url: string; sender: "me" | "them
           } transition-colors`}
         >
           {playing ? (
-            <svg className={`w-4 h-4 ${sender === "me" ? "text-white" : "text-purple-600"}`} fill="currentColor" viewBox="0 0 24 24">
-              <rect x="6" y="4" width="4" height="16" rx="1"/>
-              <rect x="14" y="4" width="4" height="16" rx="1"/>
+            <svg
+              className={`w-4 h-4 ${sender === "me" ? "text-white" : "text-purple-600"}`}
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
             </svg>
           ) : (
-            <svg className={`w-4 h-4 ml-0.5 ${sender === "me" ? "text-white" : "text-purple-600"}`} fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
+            <svg
+              className={`w-4 h-4 ml-0.5 ${sender === "me" ? "text-white" : "text-purple-600"}`}
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
@@ -798,15 +870,21 @@ function AudioBurbuja({ url, sender, time }: { url: string; sender: "me" | "them
               style={{ width: duracion ? `${(progreso / duracion) * 100}%` : "0%" }}
             />
           </div>
-          <div className={`flex justify-between text-xs mt-1 ${
-            sender === "me" ? "text-purple-200" : "text-gray-400"
-          }`}>
+          <div
+            className={`flex justify-between text-xs mt-1 ${
+              sender === "me" ? "text-purple-200" : "text-gray-400"
+            }`}
+          >
             <span>{formatTiempo(progreso)}</span>
             <span>{duracion > 0 ? formatTiempo(duracion) : "..."}</span>
           </div>
         </div>
 
-        <Mic className={`w-4 h-4 flex-shrink-0 ${sender === "me" ? "text-purple-200" : "text-gray-400"}`} />
+        <Mic
+          className={`w-4 h-4 flex-shrink-0 ${
+            sender === "me" ? "text-purple-200" : "text-gray-400"
+          }`}
+        />
       </div>
 
       <p className={`text-xs mt-1 ${sender === "me" ? "text-purple-200" : "text-gray-500"}`}>
