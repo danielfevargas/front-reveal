@@ -53,7 +53,7 @@ export function PerfilPublico() {
         let nivel = 1;
         try {
           const salaId = [userId, id].sort().join('_');
-          const resp = await fetch(`http://localhost:3000/chat/sala/${salaId}`);
+          const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/chat/sala/${salaId}`);
           if (resp.ok) {
             const data = await resp.json();
             nivel = data.nivel || 1;
