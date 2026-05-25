@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { User, FileText, ArrowRight, Camera, X, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { User, FileText, ArrowLeft, Camera, X, ChevronLeft, ChevronRight, MessageCircle, GraduationCap } from "lucide-react";
 import { userService } from "../../services/api";
 
 const CLOUDINARY_CLOUD_NAME = "dlw3wukbx";
@@ -24,14 +24,21 @@ const PROMPTS = [
 export function CompletarPerfil() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [guardado, setGuardado] = useState(false);
   const [fotos, setFotos] = useState<string[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [fotoVisor, setFotoVisor] = useState<number | null>(null);
   const [mostrarPrompts, setMostrarPrompts] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
+    nombre: "",
+    edad: "",
+    carrera: "",
+    universidad: "",
     bio: "",
     prompt_pregunta: "",
     prompt_respuesta: "",
@@ -41,34 +48,34 @@ export function CompletarPerfil() {
     const cargarPerfil = async () => {
       const userId = localStorage.getItem("userId");
       if (!userId) return;
-
       try {
         const resp = await userService.obtenerPerfil(userId);
         const data = resp.data.data;
         if (data) {
           setForm({
+            nombre: data.nombre || "",
+            edad: data.edad ? String(data.edad) : "",
+            carrera: data.carrera || "",
+            universidad: data.universidad || "",
             bio: data.bio || "",
             prompt_pregunta: data.prompt_pregunta || "",
             prompt_respuesta: data.prompt_respuesta || "",
           });
-          if (data.fotos && data.fotos.length > 0) {
-            setFotos(data.fotos);
-            setPreviews(data.fotos);
-          } else if (data.foto_url) {
-            setFotos([data.foto_url]);
-            setPreviews([data.foto_url]);
-          }
+          const fotosData = data.fotos?.length > 0 ? data.fotos : (data.foto_url ? [data.foto_url] : []);
+          setFotos(fotosData);
+          setPreviews(fotosData);
         }
-      } catch (error) {
-        console.error("Error cargando perfil:", error);
+      } catch (e) {
+        console.error("Error cargando perfil:", e);
+      } finally {
+        setCargando(false);
       }
     };
-
     cargarPerfil();
   }, []);
 
   const handleChange = (field: string, value: string) => {
-    setForm({ ...form, [field]: value });
+    setForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSeleccionarFoto = () => {
@@ -96,7 +103,6 @@ export function CompletarPerfil() {
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: "POST", body: formData }
       );
-
       const data = await resp.json();
 
       if (data.secure_url) {
@@ -105,7 +111,7 @@ export function CompletarPerfil() {
         setError("Error subiendo la foto");
         setPreviews(prev => prev.slice(0, -1));
       }
-    } catch (err) {
+    } catch {
       setError("Error subiendo la foto");
       setPreviews(prev => prev.slice(0, -1));
     } finally {
@@ -119,19 +125,28 @@ export function CompletarPerfil() {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleContinuar = async () => {
+  const handleGuardar = async () => {
     const userId = localStorage.getItem("userId");
     if (!userId) return;
+
+    if (!form.nombre.trim()) {
+      setError("El nombre es obligatorio");
+      return;
+    }
 
     setLoading(true);
     setError("");
 
     try {
       const datosActualizar: any = {
-        bio: form.bio,
+        nombre: form.nombre.trim(),
+        carrera: form.carrera.trim(),
+        universidad: form.universidad.trim(),
+        bio: form.bio.trim(),
         foto_url: fotos[0] || null,
       };
 
+      if (form.edad) datosActualizar.edad = parseInt(form.edad);
       if (form.prompt_pregunta) datosActualizar.prompt_pregunta = form.prompt_pregunta;
       if (form.prompt_respuesta) datosActualizar.prompt_respuesta = form.prompt_respuesta;
 
@@ -141,43 +156,66 @@ export function CompletarPerfil() {
         await userService.actualizarFotos(userId, fotos);
       }
 
-      navigate("/dashboard");
-    } catch (err: any) {
+      // actualizar nombre en localStorage
+      localStorage.setItem("nombre", form.nombre.trim());
+
+      setGuardado(true);
+      setTimeout(() => navigate("/profile"), 1000);
+    } catch {
       setError("Error guardando el perfil");
     } finally {
       setLoading(false);
     }
   };
 
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-purple-600 text-sm font-medium">Cargando tu perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-4">
+      {/* Header */}
+      <div className="max-w-md mx-auto flex items-center gap-3 py-4 mb-2">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h1 className="text-xl font-bold text-gray-900">Editar perfil</h1>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full"
+        className="max-w-md mx-auto"
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-3xl mb-4">
-            <User className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Completá tu perfil</h1>
-          <p className="text-gray-500 mt-1">Cuéntales algo sobre vos</p>
-        </div>
-
-        <div className="bg-white rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="bg-white rounded-3xl p-6 shadow-xl space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm">
               {error}
             </div>
           )}
 
+          {guardado && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-700 text-sm font-medium text-center">
+              ✅ Perfil guardado correctamente
+            </div>
+          )}
+
           {/* Fotos */}
           <div>
-            <label className="text-gray-700 text-sm font-medium mb-3 block">
-              Fotos de perfil ({fotos.length}/{MAX_FOTOS})
+            <label className="text-gray-700 text-sm font-semibold mb-3 block">
+              📸 Fotos ({fotos.length}/{MAX_FOTOS})
             </label>
-
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-3 mb-2">
               {previews.map((preview, index) => (
                 <div key={index} className="relative aspect-square">
                   <img
@@ -206,7 +244,6 @@ export function CompletarPerfil() {
                   )}
                 </div>
               ))}
-
               {fotos.length < MAX_FOTOS && (
                 <button
                   onClick={handleSeleccionarFoto}
@@ -218,45 +255,95 @@ export function CompletarPerfil() {
                 </button>
               )}
             </div>
-
-            <p className="text-gray-400 text-xs">
-              La primera foto será tu foto principal de perfil
-            </p>
+            <p className="text-gray-400 text-xs">La primera foto es tu foto principal</p>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFotoChange}
-            className="hidden"
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
+
+          {/* Nombre */}
+          <div>
+            <label className="text-gray-700 text-sm font-semibold mb-1 block">Nombre completo *</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={form.nombre}
+                onChange={e => handleChange("nombre", e.target.value)}
+                placeholder="Tu nombre completo"
+                className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400"
+              />
+            </div>
+          </div>
+
+          {/* Edad */}
+          <div>
+            <label className="text-gray-700 text-sm font-semibold mb-1 block">Edad</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🎂</span>
+              <input
+                type="number"
+                value={form.edad}
+                onChange={e => handleChange("edad", e.target.value)}
+                placeholder="Tu edad"
+                min={16}
+                max={60}
+                className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400"
+              />
+            </div>
+          </div>
+
+          {/* Universidad */}
+          <div>
+            <label className="text-gray-700 text-sm font-semibold mb-1 block">Universidad</label>
+            <div className="relative">
+              <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={form.universidad}
+                onChange={e => handleChange("universidad", e.target.value)}
+                placeholder="Tu universidad"
+                className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400"
+              />
+            </div>
+          </div>
+
+          {/* Carrera */}
+          <div>
+            <label className="text-gray-700 text-sm font-semibold mb-1 block">Carrera</label>
+            <div className="relative">
+              <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={form.carrera}
+                onChange={e => handleChange("carrera", e.target.value)}
+                placeholder="Tu carrera"
+                className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400"
+              />
+            </div>
+          </div>
 
           {/* Bio */}
           <div>
-            <label className="text-gray-700 text-sm font-medium mb-1 block">Bio</label>
+            <label className="text-gray-700 text-sm font-semibold mb-1 block">Bio</label>
             <div className="relative">
               <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <textarea
                 value={form.bio}
-                onChange={(e) => handleChange("bio", e.target.value)}
+                onChange={e => handleChange("bio", e.target.value)}
                 placeholder="Cuéntanos algo sobre ti... tus hobbies, qué buscas, qué te apasiona"
                 rows={3}
                 maxLength={200}
                 className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400 resize-none"
               />
             </div>
-            <p className="text-gray-400 text-xs text-right mt-1">
-              {form.bio.length}/200
-            </p>
+            <p className="text-gray-400 text-xs text-right mt-1">{form.bio.length}/200</p>
           </div>
 
-          {/* Prompt tipo Hinge */}
+          {/* Prompt */}
           <div>
-            <label className="text-gray-700 text-sm font-medium mb-2 block">
+            <label className="text-gray-700 text-sm font-semibold mb-2 block">
               💬 Prompt — genera conversación ✨
             </label>
-
             {!form.prompt_pregunta ? (
               <button
                 onClick={() => setMostrarPrompts(true)}
@@ -271,7 +358,7 @@ export function CompletarPerfil() {
                     💬 {form.prompt_pregunta}
                   </span>
                   <button
-                    onClick={() => setForm({ ...form, prompt_pregunta: "", prompt_respuesta: "" })}
+                    onClick={() => setForm(prev => ({ ...prev, prompt_pregunta: "", prompt_respuesta: "" }))}
                     className="text-purple-400 hover:text-purple-600"
                   >
                     <X className="w-4 h-4" />
@@ -279,7 +366,7 @@ export function CompletarPerfil() {
                 </div>
                 <textarea
                   value={form.prompt_respuesta}
-                  onChange={(e) => handleChange("prompt_respuesta", e.target.value)}
+                  onChange={e => handleChange("prompt_respuesta", e.target.value)}
                   placeholder="Tu respuesta..."
                   rows={2}
                   maxLength={150}
@@ -293,23 +380,23 @@ export function CompletarPerfil() {
           </div>
 
           <button
-            onClick={handleContinuar}
+            onClick={handleGuardar}
             disabled={loading || uploadingIndex !== null}
             className="w-full bg-purple-600 text-white py-4 rounded-2xl font-semibold text-lg hover:bg-purple-700 transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? "Guardando..." : (
+            {loading ? (
               <>
-                Ir al Dashboard
-                <ArrowRight className="w-5 h-5" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Guardando...
               </>
-            )}
+            ) : "Guardar cambios"}
           </button>
 
           <button
-            onClick={() => navigate("/dashboard")}
-            className="w-full text-gray-400 text-sm hover:text-gray-600 transition-colors"
+            onClick={() => navigate("/profile")}
+            className="w-full text-gray-400 text-sm hover:text-gray-600 transition-colors py-2"
           >
-            Completar después
+            Cancelar
           </button>
         </div>
       </motion.div>
@@ -328,7 +415,7 @@ export function CompletarPerfil() {
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
               className="bg-white rounded-t-3xl p-6 w-full max-w-md max-h-[70vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-4">
@@ -338,7 +425,7 @@ export function CompletarPerfil() {
                 </button>
               </div>
               <div className="space-y-2">
-                {PROMPTS.map((prompt) => (
+                {PROMPTS.map(prompt => (
                   <button
                     key={prompt}
                     onClick={() => {
@@ -373,36 +460,33 @@ export function CompletarPerfil() {
               src={previews[fotoVisor]}
               alt="Foto ampliada"
               className="max-w-full max-h-full rounded-2xl object-contain"
-              onClick={(e) => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
             />
-
             {previews.length > 1 && (
               <>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setFotoVisor((fotoVisor - 1 + previews.length) % previews.length); }}
+                  onClick={e => { e.stopPropagation(); setFotoVisor((fotoVisor - 1 + previews.length) % previews.length); }}
                   className="absolute left-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
                 >
                   <ChevronLeft className="w-6 h-6 text-white" />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setFotoVisor((fotoVisor + 1) % previews.length); }}
+                  onClick={e => { e.stopPropagation(); setFotoVisor((fotoVisor + 1) % previews.length); }}
                   className="absolute right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
                 >
                   <ChevronRight className="w-6 h-6 text-white" />
                 </button>
               </>
             )}
-
             <button
               onClick={() => setFotoVisor(null)}
               className="absolute top-4 right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
             >
               <X className="w-6 h-6 text-white" />
             </button>
-
             <div className="absolute bottom-6 flex gap-2">
               {previews.map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-full ${i === fotoVisor ? 'bg-white' : 'bg-white/40'}`} />
+                <div key={i} className={`w-2 h-2 rounded-full ${i === fotoVisor ? "bg-white" : "bg-white/40"}`} />
               ))}
             </div>
           </motion.div>
