@@ -39,6 +39,8 @@ interface Mensaje {
  * - HTTP (chatService.obtenerSala): garantiza que nivel, blur y lugares
  *   persistan aunque el servidor se haya reiniciado.
  * - Socket evento 'estado_sala': sincroniza tras la reconexión.
+ * - Intereses comunes: se calculan dinámicamente comparando los intereses
+ *   de ambos usuarios desde la BD antes de emitir el evento 'unirse'.
  */
 export function Chat() {
   const navigate = useNavigate();
@@ -85,8 +87,8 @@ export function Chat() {
 
   /**
    * Carga el estado de la sala vía HTTP al montar el componente.
-   * Esto garantiza que los lugares persistan aunque el servidor Docker se haya
-   * reiniciado y el socket 'estado_sala' llegue tarde o sin lugares.
+   * Garantiza que nivel, blur y lugares persistan aunque el servidor
+   * se haya reiniciado y el socket llegue tarde o sin datos.
    */
   useEffect(() => {
     if (!userId || !otroUserId) return;
@@ -104,71 +106,104 @@ export function Chat() {
     }).catch(() => {});
   }, [userId, otroUserId]);
 
-  /** Conecta Socket.IO y registra todos los handlers de eventos del chat */
+  /**
+   * Conecta Socket.IO y registra todos los handlers de eventos del chat.
+   *
+   * Antes de conectar, carga los intereses de ambos usuarios desde la BD
+   * y calcula la intersección (intereses en común). Estos se envían al
+   * servidor en el evento 'unirse' para que la IA los use como contexto
+   * al analizar la conexión entre los usuarios.
+   */
   useEffect(() => {
-    const s = io(CHAT_URL);
-    setSocket(s);
+    if (!userId || !otroUserId) return;
 
-    s.emit("unirse", {
-      user_id: userId,
-      otro_user_id: otroUserId,
-      intereses_comunes: ["música", "café", "tecnología"],
-      ciudad: localStorage.getItem("ciudad") || "Ibagué, Colombia"
-    });
-
-    s.on("estado_sala", (data) => {
-      setNivel(data.nivel);
-      setBlur(data.blur);
-      if (data.puntaje !== undefined) setPuntaje(data.puntaje);
-      const lugaresArr = Array.isArray(data.lugares) ? data.lugares : [];
-      if (lugaresArr.length > 0) {
-        setLugares(lugaresArr);
-        setLugaresExpandido(true);
+    const iniciarSocket = async () => {
+      // Cargar intereses reales de ambos usuarios y calcular los comunes
+      let interesesComunes: string[] = [];
+      try {
+        const [respMios, respOtro] = await Promise.all([
+          userService.obtenerIntereses(userId),
+          userService.obtenerIntereses(otroUserId)
+        ]);
+        const mios = respMios.data.data.map((i: any) => i.tag);
+        const otros = respOtro.data.data.map((i: any) => i.tag);
+        interesesComunes = mios.filter((tag: string) => otros.includes(tag));
+        console.log("Intereses comunes:", interesesComunes);
+      } catch (e) {
+        console.error("Error cargando intereses:", e);
       }
-    });
 
-    s.on("historial_mensajes", (historial) => {
-      setMessages(historial.map((m: any, i: number) => ({
-        id: i + 1,
-        tipo: m.tipo,
-        text: m.tipo === "texto" ? m.texto : undefined,
-        url: m.tipo !== "texto" ? m.url : undefined,
-        sender: (m.user_id === userId || m.autor === userId || m.autor === nombrePropio) ? "me" : "them",
-        time: new Date(m.timestamp).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
-      })));
-    });
+      const s = io(CHAT_URL);
+      setSocket(s);
 
-    s.on("nuevo_mensaje", (msg) => {
-      setMessages((prev) => [...prev, {
-        id: prev.length + 1,
-        tipo: msg.tipo || "texto",
-        text: msg.tipo === "texto" ? msg.texto : undefined,
-        url: msg.tipo !== "texto" ? msg.url : undefined,
-        sender: (msg.user_id === userId || msg.autor === userId || msg.autor === nombrePropio) ? "me" : "them",
-        time: new Date(msg.timestamp).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
-      }]);
-    });
+      s.emit("unirse", {
+        user_id: userId,
+        otro_user_id: otroUserId,
+        intereses_comunes: interesesComunes,
+        ciudad: localStorage.getItem("ciudad") || "Ibagué, Colombia"
+      });
 
-    s.on("actualizacion_nivel", (data) => {
-      setNivel(data.nivel);
-      setBlur(data.blur);
-      setPuntaje(data.puntaje);
-      setRazon(data.razon);
-    });
+      s.on("estado_sala", (data) => {
+        setNivel(data.nivel);
+        setBlur(data.blur);
+        if (data.puntaje !== undefined) setPuntaje(data.puntaje);
+        const lugaresArr = Array.isArray(data.lugares) ? data.lugares : [];
+        if (lugaresArr.length > 0) {
+          setLugares(lugaresArr);
+          setLugaresExpandido(true);
+        }
+      });
 
-    s.on("recomendacion_lugares", (data) => {
-      const lugaresArr = Array.isArray(data.lugares) ? data.lugares : [];
-      setLugares(lugaresArr);
-      setShowLugares(true);
-      setLugaresExpandido(true);
-    });
+      s.on("historial_mensajes", (historial) => {
+        setMessages(historial.map((m: any, i: number) => ({
+          id: i + 1,
+          tipo: m.tipo,
+          text: m.tipo === "texto" ? m.texto : undefined,
+          url: m.tipo !== "texto" ? m.url : undefined,
+          sender: (m.user_id === userId || m.autor === userId || m.autor === nombrePropio) ? "me" : "them",
+          time: new Date(m.timestamp).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+        })));
+      });
 
-    s.on("media_bloqueada", (data) => {
-      setMediaBloqueada(data.mensaje);
-      setTimeout(() => setMediaBloqueada(null), 3000);
-    });
+      s.on("nuevo_mensaje", (msg) => {
+        setMessages((prev) => [...prev, {
+          id: prev.length + 1,
+          tipo: msg.tipo || "texto",
+          text: msg.tipo === "texto" ? msg.texto : undefined,
+          url: msg.tipo !== "texto" ? msg.url : undefined,
+          sender: (msg.user_id === userId || msg.autor === userId || msg.autor === nombrePropio) ? "me" : "them",
+          time: new Date(msg.timestamp).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+        }]);
+      });
 
-    return () => { s.disconnect(); };
+      s.on("actualizacion_nivel", (data) => {
+        setNivel(data.nivel);
+        setBlur(data.blur);
+        setPuntaje(data.puntaje);
+        setRazon(data.razon);
+      });
+
+      s.on("recomendacion_lugares", (data) => {
+        const lugaresArr = Array.isArray(data.lugares) ? data.lugares : [];
+        setLugares(lugaresArr);
+        setShowLugares(true);
+        setLugaresExpandido(true);
+      });
+
+      s.on("media_bloqueada", (data) => {
+        setMediaBloqueada(data.mensaje);
+        setTimeout(() => setMediaBloqueada(null), 3000);
+      });
+    };
+
+    iniciarSocket();
+
+    return () => {
+      setSocket((prev) => {
+        prev?.disconnect();
+        return null;
+      });
+    };
   }, [userId, otroUserId]);
 
   /** Auto-scroll al último mensaje */
@@ -381,7 +416,7 @@ export function Chat() {
         )}
       </AnimatePresence>
 
-      {/* Panel lugares recomendados — persistente y expandible */}
+      {/* Panel lugares recomendados */}
       <AnimatePresence>
         {lugares.length > 0 && (
           <motion.div
@@ -410,7 +445,7 @@ export function Chat() {
                   className="px-4 pb-3 space-y-2"
                 >
                   {lugares.map((l: any, i: number) => (
-                    <a
+                    
                       key={i}
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nombre} ${l.direccion || ""}`)}`}
                       target="_blank"
@@ -678,7 +713,6 @@ export function Chat() {
 /**
  * Burbuja de mensaje de audio con controles de reproducción.
  * Muestra barra de progreso clickeable, tiempo transcurrido y duración total.
- * Usa un elemento <audio> nativo con ref para controlar reproducción.
  */
 function AudioBurbuja({ url, sender, time }: { url: string; sender: "me" | "them"; time: string }) {
   const [playing, setPlaying] = useState(false);
