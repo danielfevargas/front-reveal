@@ -5,7 +5,7 @@ import axios from 'axios';
  * La URL base se configura en la variable de entorno VITE_API_URL.
  * En producción apunta al API Gateway en Railway; en desarrollo a localhost:3000.
  */
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://reveal-api-gateway.onrender.com';
 
 const api = axios.create({
   baseURL: API_URL,
