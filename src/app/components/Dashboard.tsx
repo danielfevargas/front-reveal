@@ -77,7 +77,7 @@ export function Dashboard() {
           mutuos.map(async (match: any) => {
             try {
               const salaId = [userId, match.id].sort().join('_');
-              const respSala = await fetch(`http://localhost:3000/chat/sala/${salaId}`);
+              const respSala = await fetch(`${import.meta.env.VITE_API_URL || 'https://reveal-api-gateway.onrender.com'}/chat/sala/${salaId}`);
               const sala = await respSala.json();
               const nivel = sala.nivel || 1;
               return {
@@ -454,10 +454,10 @@ function MatchMutuoCard({ match, index, navigate }: { match: any; index: number;
       <div className="relative h-48 bg-gradient-to-br from-purple-400 to-indigo-400">
         {match.foto_url ? (
           <img
-            src={match.foto_url}
+            src={match.foto_blur_url || match.foto_url}
             alt="Foto"
             className="w-full h-full object-cover"
-            style={match.foto_borrosa ? { filter: 'blur(15px)', transform: 'scale(1.1)' } : undefined}
+            style={{ filter: 'blur(15px)', transform: 'scale(1.1)' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold opacity-20">
