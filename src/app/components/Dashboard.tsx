@@ -7,20 +7,6 @@ import { userService } from "../../services/api";
 
 const GOOGLE_API_KEY = "AIzaSyBsbzIDndMeF6J6qp8teCwtS1a8x7WyGoI";
 
-/**
- * Pantalla principal de la app tras el login.
- *
- * Dos pestañas:
- *   "Sugerencias"  → candidatos de match calculados por intereses comunes (MatchCard)
- *   "Mis Matches"  → usuarios con like mutuo (MatchMutuoCard)
- *
- * Para cada match mutuo consulta el nivel de conexión de la sala vía HTTP
- * para determinar si mostrar la foto con o sin blur en el dashboard.
- *
- * Ciudad: se obtiene automáticamente con Geolocation + Google Geocoding API.
- * Si el usuario deniega el permiso, se muestra un modal con input manual.
- * La ciudad se persiste en localStorage para usarla en el chat (AI de lugares).
- */
 export function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,37 +57,16 @@ export function Dashboard() {
           userService.obtenerMatchesMutuos(userId)
         ]);
         setMatches(respMatches.data.data || []);
-
-        const mutuos = respMutuos.data.data || [];
-        const mutuosConNivel = await Promise.all(
-          mutuos.map(async (match: any) => {
-            try {
-              const salaId = [userId, match.id].sort().join('_');
-              const respSala = await fetch(`${import.meta.env.VITE_API_URL || 'https://reveal-api-gateway.onrender.com'}/chat/sala/${salaId}`);
-              const sala = await respSala.json();
-              const nivel = sala.nivel || 1;
-              return {
-                ...match,
-                nivel_conexion: nivel,
-                foto_url: match.foto_url,
-                foto_borrosa: nivel < 4
-              };
-          } catch {
-            return { ...match, nivel_conexion: 1, foto_url: match.foto_url, foto_borrosa: true };
-          }
-        })
-      );
-      setMatchesMutuos(mutuosConNivel);
-    } catch (error) {
-      console.error("Error cargando matches:", error);
-    } finally {
-    setCargandoMatches(false);
-    }
-  };
-  cargarMatches();
+        setMatchesMutuos(respMutuos.data.data || []);
+      } catch (error) {
+        console.error("Error cargando matches:", error);
+      } finally {
+        setCargandoMatches(false);
+      }
+    };
+    cargarMatches();
   }, [userId]);
 
-  /** Solicita la ubicación del navegador y la convierte a nombre de ciudad con Google Geocoding */
   const pedirUbicacion = () => {
     setCargandoUbicacion(true);
     if (!navigator.geolocation) {
@@ -382,7 +347,6 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-/** Tarjeta de sugerencia de match (foto siempre borrosa — identidad anónima hasta el chat) */
 function MatchCard({ match, index, navigate }: { match: any; index: number; navigate: any }) {
   return (
     <motion.div
@@ -441,7 +405,6 @@ function MatchCard({ match, index, navigate }: { match: any; index: number; navi
   );
 }
 
-/** Tarjeta de match mutuo — foto con/sin blur según el nivel de conexión de la sala */
 function MatchMutuoCard({ match, index, navigate }: { match: any; index: number; navigate: any }) {
   return (
     <motion.div
@@ -454,10 +417,9 @@ function MatchMutuoCard({ match, index, navigate }: { match: any; index: number;
       <div className="relative h-48 bg-gradient-to-br from-purple-400 to-indigo-400">
         {match.foto_url ? (
           <img
-            src={match.foto_blur_url || match.foto_url}
+            src={match.foto_url}
             alt="Foto"
             className="w-full h-full object-cover"
-            style={{ filter: 'blur(15px)', transform: 'scale(1.1)' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold opacity-20">
@@ -478,18 +440,18 @@ function MatchMutuoCard({ match, index, navigate }: { match: any; index: number;
         </div>
         <p className="text-sm text-gray-600 mb-3">{match.universidad}</p>
         <div className="flex gap-2 mt-3">
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/perfil/${match.id}`); }}
-          className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors whitespace-nowrap"
-        >
-          👤 perfil
-        </button>
-        <button
-          onClick={() => navigate(`/chat/${match.id}`)}
-          className="flex-1 bg-purple-600 text-white py-2 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors"
-        >
-          💬 Chatear
-        </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/perfil/${match.id}`); }}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors whitespace-nowrap"
+          >
+            👤 perfil
+          </button>
+          <button
+            onClick={() => navigate(`/chat/${match.id}`)}
+            className="flex-1 bg-purple-600 text-white py-2 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors"
+          >
+            💬 Chatear
+          </button>
         </div>
       </div>
     </motion.div>
