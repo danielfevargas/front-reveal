@@ -6,6 +6,7 @@ import { BottomNav } from "./BottomNav";
 import { userService } from "../../services/api";
 
 const GOOGLE_API_KEY = "AIzaSyBsbzIDndMeF6J6qp8teCwtS1a8x7WyGoI";
+const API_URL = import.meta.env.VITE_API_URL || 'https://reveal-api-gateway.onrender.com';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -57,7 +58,32 @@ export function Dashboard() {
           userService.obtenerMatchesMutuos(userId)
         ]);
         setMatches(respMatches.data.data || []);
-        setMatchesMutuos(respMutuos.data.data || []);
+
+        const mutuos = respMutuos.data.data || [];
+        const mutuosConNivel = await Promise.all(
+          mutuos.map(async (match: any) => {
+            try {
+              const salaId = [userId, match.id].sort().join('_');
+              const respSala = await fetch(`${API_URL}/chat/sala/${salaId}`);
+              const sala = await respSala.json();
+              const nivel = sala.nivel || 1;
+              return {
+                ...match,
+                nivel_conexion: nivel,
+                foto_mostrar: nivel >= 4
+                  ? (match.fotos?.[0] || match.foto_blur_url || match.foto_url)
+                  : (match.foto_blur_url || match.foto_url),
+              };
+            } catch {
+              return {
+                ...match,
+                nivel_conexion: 1,
+                foto_mostrar: match.foto_blur_url || match.foto_url
+              };
+            }
+          })
+        );
+        setMatchesMutuos(mutuosConNivel);
       } catch (error) {
         console.error("Error cargando matches:", error);
       } finally {
@@ -415,9 +441,9 @@ function MatchMutuoCard({ match, index, navigate }: { match: any; index: number;
       className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer border-2 border-purple-200"
     >
       <div className="relative h-48 bg-gradient-to-br from-purple-400 to-indigo-400">
-        {match.foto_url ? (
+        {match.foto_mostrar ? (
           <img
-            src={match.foto_url}
+            src={match.foto_mostrar}
             alt="Foto"
             className="w-full h-full object-cover"
           />
@@ -432,7 +458,9 @@ function MatchMutuoCard({ match, index, navigate }: { match: any; index: number;
       </div>
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-bold text-gray-900">{match.nombre || "Usuario anónimo"}</h3>
+          <h3 className="text-lg font-bold text-gray-900">
+            {match.nivel_conexion >= 3 ? match.nombre?.split(' ')[0] || "Usuario anónimo" : "Usuario anónimo"}
+          </h3>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-green-500 rounded-full" />
             <span className="text-xs text-gray-600">Activo</span>
