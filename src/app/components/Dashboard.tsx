@@ -383,12 +383,11 @@ function MatchCard({ match, index, navigate }: { match: any; index: number; navi
       className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer"
     >
       <div className="relative h-48 bg-gradient-to-br from-purple-400 to-indigo-400">
-        {match.foto_url ? (
+        {match.foto_blur_url || match.foto_url ? (
           <img
-            src={match.foto_url}
+            src={match.foto_blur_url || match.foto_url}
             alt="Foto"
             className="w-full h-full object-cover"
-            style={{ filter: 'blur(15px)', transform: 'scale(1.1)' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold opacity-20">
