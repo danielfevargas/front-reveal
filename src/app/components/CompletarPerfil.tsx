@@ -1,11 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { User, FileText, ArrowLeft, Camera, X, ChevronLeft, ChevronRight, MessageCircle, GraduationCap } from "lucide-react";
+import { User, FileText, ArrowLeft, Camera, X, ChevronLeft, ChevronRight, GraduationCap } from "lucide-react";
 import { userService } from "../../services/api";
 
-const CLOUDINARY_CLOUD_NAME = "dlw3wukbx";
-const CLOUDINARY_UPLOAD_PRESET = "reveal_profiles";
 const MAX_FOTOS = 3;
 
 const PROMPTS = [
@@ -25,11 +23,18 @@ export function CompletarPerfil() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [guardado, setGuardado] = useState(false);
-  const [fotos, setFotos] = useState<string[]>([]);
+
+  /**
+   * fotos: URLs de preview (objectURL local o URL de Cloudinary ya guardada)
+   * archivosNuevos: archivos File[] pendientes de subir al backend
+   * fotosExistentes: URLs ya guardadas en la BD (no se resuben)
+   */
   const [previews, setPreviews] = useState<string[]>([]);
+  const [archivosNuevos, setArchivosNuevos] = useState<File[]>([]);
+  const [fotosExistentes, setFotosExistentes] = useState<string[]>([]);
+
   const [fotoVisor, setFotoVisor] = useState<number | null>(null);
   const [mostrarPrompts, setMostrarPrompts] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,8 +66,11 @@ export function CompletarPerfil() {
             prompt_pregunta: data.prompt_pregunta || "",
             prompt_respuesta: data.prompt_respuesta || "",
           });
-          const fotosData = data.fotos?.length > 0 ? data.fotos : (data.foto_url ? [data.foto_url] : []);
-          setFotos(fotosData);
+          // Cargar fotos existentes (URLs ya en la BD)
+          const fotosData = data.fotos?.length > 0
+            ? data.fotos
+            : (data.foto_url ? [data.foto_url] : []);
+          setFotosExistentes(fotosData);
           setPreviews(fotosData);
         }
       } catch (e) {
@@ -79,52 +87,45 @@ export function CompletarPerfil() {
   };
 
   const handleSeleccionarFoto = () => {
-    if (fotos.length >= MAX_FOTOS) return;
+    if (previews.length >= MAX_FOTOS) return;
     fileInputRef.current?.click();
   };
 
-  const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Al seleccionar una foto, solo genera un preview local.
+   * NO sube a Cloudinary — el backend lo hace al guardar.
+   */
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const index = fotos.length;
     const previewUrl = URL.createObjectURL(file);
     setPreviews(prev => [...prev, previewUrl]);
-    setUploadingIndex(index);
-    setError("");
+    setArchivosNuevos(prev => [...prev, file]);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      formData.append("folder", "reveal/perfiles");
-
-      const resp = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await resp.json();
-
-      if (data.secure_url) {
-        setFotos(prev => [...prev, data.secure_url]);
-      } else {
-        setError("Error subiendo la foto");
-        setPreviews(prev => prev.slice(0, -1));
-      }
-    } catch {
-      setError("Error subiendo la foto");
-      setPreviews(prev => prev.slice(0, -1));
-    } finally {
-      setUploadingIndex(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const eliminarFoto = (index: number) => {
-    setFotos(prev => prev.filter((_, i) => i !== index));
+    const esExistente = index < fotosExistentes.length;
+
     setPreviews(prev => prev.filter((_, i) => i !== index));
+
+    if (esExistente) {
+      setFotosExistentes(prev => prev.filter((_, i) => i !== index));
+    } else {
+      const indexNuevo = index - fotosExistentes.length;
+      setArchivosNuevos(prev => prev.filter((_, i) => i !== indexNuevo));
+    }
   };
 
+  /**
+   * Al guardar:
+   * 1. Actualiza los datos del perfil (nombre, bio, etc.)
+   * 2. Si hay archivos nuevos, los envía al backend como multipart.
+   *    El backend los sube a Cloudinary, genera la versión blur y guarda ambas URLs.
+   * 3. Si solo hay fotos existentes (no se agregaron nuevas), las reenvía como URLs.
+   */
   const handleGuardar = async () => {
     const userId = localStorage.getItem("userId");
     if (!userId) return;
@@ -143,7 +144,7 @@ export function CompletarPerfil() {
         carrera: form.carrera.trim(),
         universidad: form.universidad.trim(),
         bio: form.bio.trim(),
-        foto_url: fotos[0] || null,
+        foto_url: fotosExistentes[0] || null,
       };
 
       if (form.edad) datosActualizar.edad = parseInt(form.edad);
@@ -152,13 +153,17 @@ export function CompletarPerfil() {
 
       await userService.actualizarPerfil(userId, datosActualizar);
 
-      if (fotos.length > 0) {
-        await userService.actualizarFotos(userId, fotos);
+      if (archivosNuevos.length > 0) {
+        // Enviar archivos al backend — el backend genera blur y sube a Cloudinary
+        const formData = new FormData();
+        archivosNuevos.forEach(file => formData.append("fotos", file));
+        await userService.actualizarFotosArchivos(userId, formData);
+      } else if (fotosExistentes.length > 0) {
+        // Solo reenviar URLs existentes (sin cambios)
+        await userService.actualizarFotos(userId, fotosExistentes);
       }
 
-      // actualizar nombre en localStorage
       localStorage.setItem("nombre", form.nombre.trim());
-
       setGuardado(true);
       setTimeout(() => navigate("/profile"), 1000);
     } catch {
@@ -181,7 +186,6 @@ export function CompletarPerfil() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-4">
-      {/* Header */}
       <div className="max-w-md mx-auto flex items-center gap-3 py-4 mb-2">
         <button
           onClick={() => navigate(-1)}
@@ -213,7 +217,7 @@ export function CompletarPerfil() {
           {/* Fotos */}
           <div>
             <label className="text-gray-700 text-sm font-semibold mb-3 block">
-              📸 Fotos ({fotos.length}/{MAX_FOTOS})
+              📸 Fotos ({previews.length}/{MAX_FOTOS})
             </label>
             <div className="grid grid-cols-3 gap-3 mb-2">
               {previews.map((preview, index) => (
@@ -221,34 +225,31 @@ export function CompletarPerfil() {
                   <img
                     src={preview}
                     alt={`Foto ${index + 1}`}
-                    onClick={() => uploadingIndex === null && setFotoVisor(index)}
+                    onClick={() => setFotoVisor(index)}
                     className="w-full h-full object-cover rounded-2xl cursor-pointer hover:opacity-90 transition-opacity"
                   />
-                  {uploadingIndex === index && (
-                    <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  {uploadingIndex !== index && (
-                    <button
-                      onClick={() => eliminarFoto(index)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-md"
-                    >
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => eliminarFoto(index)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-md"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
                   {index === 0 && (
                     <div className="absolute bottom-1 left-1 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
                       Principal
                     </div>
                   )}
+                  {index >= fotosExistentes.length && (
+                    <div className="absolute bottom-1 right-1 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      Nueva
+                    </div>
+                  )}
                 </div>
               ))}
-              {fotos.length < MAX_FOTOS && (
+              {previews.length < MAX_FOTOS && (
                 <button
                   onClick={handleSeleccionarFoto}
-                  disabled={uploadingIndex !== null}
-                  className="aspect-square border-2 border-dashed border-purple-300 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:bg-purple-50 transition-all disabled:opacity-50"
+                  className="aspect-square border-2 border-dashed border-purple-300 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:bg-purple-50 transition-all"
                 >
                   <Camera className="w-6 h-6 text-purple-400" />
                   <span className="text-xs text-purple-400">Agregar</span>
@@ -256,6 +257,11 @@ export function CompletarPerfil() {
               )}
             </div>
             <p className="text-gray-400 text-xs">La primera foto es tu foto principal</p>
+            {archivosNuevos.length > 0 && (
+              <p className="text-amber-600 text-xs mt-1">
+                {archivosNuevos.length} foto(s) nueva(s) — se procesarán al guardar
+              </p>
+            )}
           </div>
 
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
@@ -330,7 +336,7 @@ export function CompletarPerfil() {
               <textarea
                 value={form.bio}
                 onChange={e => handleChange("bio", e.target.value)}
-                placeholder="Cuéntanos algo sobre ti... tus hobbies, qué buscas, qué te apasiona"
+                placeholder="Cuéntanos algo sobre ti..."
                 rows={3}
                 maxLength={200}
                 className="w-full border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-purple-400 resize-none"
@@ -381,7 +387,7 @@ export function CompletarPerfil() {
 
           <button
             onClick={handleGuardar}
-            disabled={loading || uploadingIndex !== null}
+            disabled={loading}
             className="w-full bg-purple-600 text-white py-4 rounded-2xl font-semibold text-lg hover:bg-purple-700 transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (

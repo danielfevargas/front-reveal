@@ -66,8 +66,21 @@ export const userService = {
   /** Reemplaza la lista completa de intereses del usuario */
   agregarIntereses: (id: string, intereses: any[]) => api.post(`/users/${id}/intereses`, { intereses }),
 
-  /** Actualiza el array de URLs de fotos de Cloudinary */
+  /**
+   * Actualiza fotos enviando URLs directas (compatibilidad hacia atrás).
+   * Usado cuando no hay fotos nuevas que subir.
+   */
   actualizarFotos: (id: string, fotos: string[]) => api.put(`/users/${id}/fotos`, { fotos }),
+
+  /**
+   * Sube archivos de fotos al backend como multipart/form-data.
+   * El backend los procesa con Cloudinary, genera la versión con blur
+   * y guarda ambas URLs en la BD. El frontend nunca recibe la URL original
+   * hasta que el nivel de conexión lo permita.
+   */
+  actualizarFotosArchivos: (id: string, formData: FormData) => api.put(`/users/${id}/fotos`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
 
   /** Registra un like; responde si hubo match mutuo */
   darLike: (id: string, otroId: string) => api.post(`/users/${id}/like/${otroId}`),
