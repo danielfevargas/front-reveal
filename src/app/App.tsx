@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Welcome } from "./components/Welcome";
 import { Register } from "./components/Register";
 import { Login } from "./components/Login";
+import { VerificarEmail } from "./components/VerificarEmail";
 import { VerificarCarnet } from "./components/VerificarCarnet";
 import { CompletarPerfil } from "./components/CompletarPerfil";
 import { Onboarding } from "./components/Onboarding";
@@ -17,9 +18,10 @@ import { PerfilPublico } from "./components/PerfilPublico";
  * Árbol de rutas de la SPA.
  *
  * Rutas públicas (sin autenticación):
- *   /          → Welcome
- *   /login     → Login
- *   /register  → Register
+ *   /                → Welcome
+ *   /login           → Login
+ *   /register        → Register
+ *   /verificar-email → VerificarEmail (código de 6 dígitos tras registro)
  *
  * Rutas protegidas (requieren token en localStorage):
  *   /verificar          → VerificarCarnet (subir carnet universitario)
@@ -42,6 +44,7 @@ export default function App() {
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verificar-email" element={<VerificarEmail />} />
 
         {/* Rutas protegidas */}
         <Route path="/verificar" element={<ProtectedRoute><VerificarCarnet /></ProtectedRoute>} />

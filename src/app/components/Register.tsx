@@ -6,7 +6,6 @@ import { authService, userService } from "../../services/api";
 
 export function Register() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,7 +27,7 @@ export function Register() {
     setError("");
 
     try {
-      // 1. Registrar en auth-service
+      // 1. Registrar en auth-service (envía código de verificación por correo)
       const authResp = await authService.register({
         email: form.email,
         password: form.password,
@@ -37,23 +36,18 @@ export function Register() {
         carrera: form.carrera,
       });
 
-      const { userId, token } = authResp.data;
-      localStorage.setItem("token", token);
-      localStorage.setItem("userId", userId);
-      localStorage.setItem("email", form.email);
-      localStorage.setItem("nombre", form.nombre);
+      const { userId } = authResp.data;
 
-      // 2. Crear perfil en user-service
-      await userService.crearPerfil({
-        id: userId,
-        email: form.email,
-        nombre: form.nombre,
-        edad: parseInt(form.edad),
-        universidad: form.universidad,
-        carrera: form.carrera,
-      });
+      // Guardamos datos temporales para crear el perfil DESPUÉS de verificar el email
+      localStorage.setItem("pendingUserId", userId);
+      localStorage.setItem("pendingEmail", form.email);
+      localStorage.setItem("pendingNombre", form.nombre);
+      localStorage.setItem("pendingEdad", form.edad);
+      localStorage.setItem("pendingUniversidad", form.universidad);
+      localStorage.setItem("pendingCarrera", form.carrera);
+      localStorage.setItem("pendingPassword", form.password);
 
-      navigate("/verificar");
+      navigate("/verificar-email");
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al crear la cuenta");
     } finally {
