@@ -37,14 +37,8 @@ api.interceptors.request.use((config) => {
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 
 export const authService = {
-  /** Registra un nuevo usuario y envía código de verificación por correo */
   register: (data: any) => api.post('/auth/register', data),
-  /** Login con email/contraseña; devuelve JWT + userId */
   login: (data: any) => api.post('/auth/login', data),
-  /** Verifica el código de 6 dígitos enviado al correo */
-  verificarCodigo: (data: any) => api.post('/auth/verificar-codigo', data),
-  /** Reenvía un nuevo código de verificación */
-  reenviarCodigo: (data: any) => api.post('/auth/reenviar-codigo', data),
 };
 
 // ─── USER ────────────────────────────────────────────────────────────────────

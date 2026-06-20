@@ -27,7 +27,7 @@ export function Register() {
     setError("");
 
     try {
-      // 1. Registrar en auth-service (envía código de verificación por correo)
+      // 1. Registrar en auth-service
       const authResp = await authService.register({
         email: form.email,
         password: form.password,
@@ -38,16 +38,28 @@ export function Register() {
 
       const { userId } = authResp.data;
 
-      // Guardamos datos temporales para crear el perfil DESPUÉS de verificar el email
-      localStorage.setItem("pendingUserId", userId);
-      localStorage.setItem("pendingEmail", form.email);
-      localStorage.setItem("pendingNombre", form.nombre);
-      localStorage.setItem("pendingEdad", form.edad);
-      localStorage.setItem("pendingUniversidad", form.universidad);
-      localStorage.setItem("pendingCarrera", form.carrera);
-      localStorage.setItem("pendingPassword", form.password);
+      // 2. Crear perfil de usuario
+      await userService.crearPerfil({
+        id: userId,
+        email: form.email,
+        nombre: form.nombre,
+        edad: parseInt(form.edad),
+        universidad: form.universidad,
+        carrera: form.carrera,
+      });
 
-      navigate("/verificar-email");
+      // 3. Login automático
+      const loginResp = await authService.login({
+        email: form.email,
+        password: form.password,
+      });
+
+      localStorage.setItem("token", loginResp.data.token);
+      localStorage.setItem("userId", loginResp.data.userId);
+      localStorage.setItem("nombre", form.nombre);
+      localStorage.setItem("email", form.email);
+
+      navigate("/verificar");
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al crear la cuenta");
     } finally {
